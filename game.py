@@ -4,8 +4,6 @@ import os
 import random
 import requests as req
 import json
-token=sys.argv[1]
-ip_text=sys.argv[2]
 
 '''
 Example return data : {"userdata": [[1, "meow", "61be55a8e2f6b4e172338bddf184d6dbee29c98853e0a0485ecee7f27b9af0b4", "{}", "{}", 100, 0, "{}", "{}", "26a989a23abf5ee3ae4106883e9f534a8042846458e34df03ab5ee063692f007", 1]]}
@@ -13,7 +11,12 @@ Example return data : {"userdata": [[1, "meow", "61be55a8e2f6b4e172338bddf184d6d
 id, username, password, fishes data, foods data, money data, total play duration time, pre_fishes, acheivements, token, level
 '''
 
-userdata=json.loads(req.get(f"{ip_text}/api/getUserdata/token/{token}").text)['userdata'][0]
+token = sys.argv[1]
+ip_text = sys.argv[2]
+
+# Fetch user data
+userdata = json.loads(req.get(f"{ip_text}/api/getUserdata/token/{token}").text)['userdata'][0]
+
 # Initialize Pygame
 pygame.init()
 
@@ -62,10 +65,13 @@ fish_images = [pygame.transform.scale(pygame.image.load('whale.png'), (70, 70)) 
 fish_positions = [[random.randint(100, 600), random.randint(200, 700)] for _ in range(3)]
 fish_speeds = [random.choice([i*0.1+0.7 for i in range(10)]) for _ in range(3)]
 fish_directions = [random.choice([1, -1]) for _ in range(3)]
+dragging_fish = [False for _ in range(3)]
+drag_offset_x = [0 for _ in range(3)]
+drag_offset_y = [0 for _ in range(3)]
 
 for i in range(len(fish_directions)):
-        if fish_directions[i]==1:
-            fish_images[i] = pygame.transform.flip(fish_images[i], True, False)
+    if fish_directions[i] == 1:
+        fish_images[i] = pygame.transform.flip(fish_images[i], True, False)
 
 # Function to draw buttons
 def draw_button(rect, text):
@@ -93,16 +99,17 @@ def draw_fish():
         fish_x, fish_y = fish_positions[i]
         fish_direction = fish_directions[i]
         fish_speed = fish_speeds[i]
-        
-        fish_x += fish_speed * fish_direction
-        if fish_x <= 0 or fish_x >= 650:
-            fish_direction *= -1
-            fish_y += random.randint(-20, 20)
-            if fish_y < 200:
-                fish_y = 200
-            elif fish_y > 650:
-                fish_y = 650
-            fish_images[i] = pygame.transform.flip(fish_images[i], True, False)
+
+        if not dragging_fish[i]:
+            fish_x += fish_speed * fish_direction
+            if fish_x <= 0 or fish_x >= 650:
+                fish_direction *= -1
+                fish_y += random.randint(-20, 20)
+                if fish_y < 200:
+                    fish_y = 200
+                elif fish_y > 650:
+                    fish_y = 650
+                fish_images[i] = pygame.transform.flip(fish_images[i], True, False)
         
         fish_positions[i] = [fish_x, fish_y]
         fish_directions[i] = fish_direction
@@ -122,6 +129,21 @@ while running:
             for i, rect in enumerate(nav_button_rects):
                 if rect.collidepoint(mouse_pos):
                     print(f"{nav_buttons[i]} button pressed")
+            for i in range(len(fish_positions)):
+                fish_rect = pygame.Rect(fish_positions[i][0], fish_positions[i][1], 70, 70)
+                if fish_rect.collidepoint(mouse_pos):
+                    dragging_fish[i] = True
+                    drag_offset_x[i] = fish_positions[i][0] - mouse_pos[0]
+                    drag_offset_y[i] = fish_positions[i][1] - mouse_pos[1]
+        elif event.type == pygame.MOUSEBUTTONUP:
+            for i in range(len(dragging_fish)):
+                dragging_fish[i] = False
+        elif event.type == pygame.MOUSEMOTION:
+            mouse_pos = event.pos
+            for i in range(len(dragging_fish)):
+                if dragging_fish[i]:
+                    fish_positions[i][0] = mouse_pos[0] + drag_offset_x[i]
+                    fish_positions[i][1] = mouse_pos[1] + drag_offset_y[i]
 
     screen.fill(background_color)
     
