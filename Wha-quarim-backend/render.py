@@ -149,6 +149,52 @@ def userlogout(token):
     db.commit()
     return 'logout success'
 
+@app.route('/api/buyfish/token/<token>')
+def buyfish(token):
+    db = get_db()
+
+    # Get the user data
+    cur = db.execute('SELECT * FROM users WHERE token=?', (token,))
+    user = cur.fetchone()
+    if not user:
+        return "Invalid token"
+
+    # Get all fish from the database
+    cur = db.execute('SELECT * FROM fish')
+    fishes = cur.fetchall()
+    if not fishes:
+        return "No fish available"
+
+    # Randomly select a fish
+    selected_fish = random.choice(fishes)
+
+    # Check if the user has enough money
+    if user['money'] < selected_fish['price']:
+        return "Not enough money"
+
+    # Deduct the price from the user's money
+    new_money = user['money'] - selected_fish['price']
+
+    # Update the user's fishes
+    user_fishes = json.loads(user['fishes'])
+    user_fishes.append({
+        'id': selected_fish['id'],
+        'name': selected_fish['name'],
+        'price': selected_fish['price'],
+        'hunger': selected_fish['hunger'],
+        'long': selected_fish['long'],
+        'food_time': selected_fish['food_time']
+    })
+
+    db.execute('UPDATE users SET fishes=?, money=? WHERE token=?',
+               (json.dumps(user_fishes), new_money, token))
+    db.commit()
+
+    return json.dumps({
+        'message': 'Fish purchased successfully',
+        'fish': selected_fish
+    })
+
 if __name__ == '__main__':
     init_db()
     app.run(debug=True, host='0.0.0.0', port=8080)
